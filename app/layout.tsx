@@ -8,8 +8,8 @@ const _jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "
 const _outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] })
 
 export const metadata: Metadata = {
-  title: 'Meridian — Financial Analytics Dashboard',
-  description: 'Professional financial analytics dashboard with portfolio tracking, performance metrics, risk analysis, and market overview.',
+  title: 'Ledgerly — AI Expense Tracker',
+  description: 'An AI-powered expense tracker that automatically categorizes your spending, surfaces insights, and keeps your budgets on track.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -37,7 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased grain">
+      <body className="font-sans antialiased">
         {children}
         <Analytics />
       </body>
