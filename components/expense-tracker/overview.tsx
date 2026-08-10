@@ -11,7 +11,7 @@ import {
   Pie,
   PieChart,
 } from "recharts"
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, PiggyBank, Receipt } from "lucide-react"
+import { ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Landmark, Receipt } from "lucide-react"
 import {
   KPIS,
   SPENDING_TREND,
@@ -218,7 +218,7 @@ export function Overview() {
           label="Savings rate"
           value={`${KPIS.savingsRate}%`}
           change={KPIS.savingsChange}
-          icon={PiggyBank}
+          icon={Landmark}
           delay={0.1}
         />
         <KpiCard
