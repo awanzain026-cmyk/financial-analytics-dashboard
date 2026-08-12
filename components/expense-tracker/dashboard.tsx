@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { motion } from "motion/react"
 import { Construction } from "lucide-react"
 import { Sidebar, type NavId } from "./sidebar"
@@ -10,6 +10,17 @@ import { AiCategorization } from "./ai-categorization"
 import { BudgetsInsights } from "./budgets-insights"
 import { Transactions } from "./transactions"
 import { AddExpenseModal } from "./add-expense-modal"
+import { AuthScreen } from "./auth-screen"
+import {
+  apiListExpenses,
+  apiLoadDemo,
+  apiMe,
+  apiUpdateBudget,
+  clearToken,
+  isLoggedIn,
+  type Expense,
+} from "@/lib/api"
+import { toast } from "@/hooks/use-toast"
 
 const TITLES: Record<NavId, { title: string; subtitle: string }> = {
   overview: { title: "Overview", subtitle: "Your spending at a glance, powered by AI" },
@@ -37,14 +48,83 @@ function Placeholder({ label }: { label: string }) {
 export default function Dashboard() {
   const [nav, setNav] = useState<NavId>("overview")
   const [addOpen, setAddOpen] = useState(false)
+  const [authed, setAuthed] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [expenses, setExpenses] = useState<Expense[] | null>(null)
+  const [expensesError, setExpensesError] = useState<string | null>(null)
+  const [budget, setBudget] = useState(0)
+  const [demoBusy, setDemoBusy] = useState(false)
   const meta = TITLES[nav]
+
+  // localStorage only exists on the client, so the login check must happen
+  // after mount (SSR renders the same first frame -> no hydration mismatch)
+  useEffect(() => {
+    const onChange = () => setAuthed(isLoggedIn())
+    onChange()
+    window.addEventListener("auth:changed", onChange)
+    return () => window.removeEventListener("auth:changed", onChange)
+  }, [])
+
+  // Load the user's real expenses (single fetch shared by Overview + Transactions).
+  // refreshKey bumps after every save, demo load, etc. -> refetch.
+  const loadExpenses = useCallback(async () => {
+    try {
+      setExpenses(await apiListExpenses())
+      setExpensesError(null)
+    } catch (err) {
+      setExpensesError(err instanceof Error ? err.message : "Failed to load expenses")
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!authed) return
+    loadExpenses()
+    apiMe()
+      .then((me) => setBudget(me.monthly_budget ?? 0))
+      .catch(() => {})
+  }, [authed, refreshKey, loadExpenses])
+
+  // ── real Overview stats, computed from the expenses we just fetched ──
+  const monthKey = new Date().toISOString().slice(0, 7) // e.g. "2026-08"
+  const monthExpenses = (expenses ?? []).filter((e) => e.date.startsWith(monthKey))
+  const spentMonth = monthExpenses.reduce((sum, e) => sum + e.amount, 0)
+  const countMonth = monthExpenses.length
+  const avgMonth = countMonth > 0 ? spentMonth / countMonth : 0
+
+  const handleSaveBudget = async (value: number) => {
+    try {
+      const me = await apiUpdateBudget(value)
+      setBudget(me.monthly_budget)
+      toast({ description: "Monthly budget saved" })
+    } catch (err) {
+      toast({ description: err instanceof Error ? err.message : "Failed to save budget", variant: "destructive" })
+    }
+  }
+
+  const handleLoadDemo = async () => {
+    if (demoBusy) return
+    setDemoBusy(true)
+    try {
+      await apiLoadDemo()
+      toast({ description: "Demo data loaded — it will be replaced by your own once you add expenses" })
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      toast({ description: err instanceof Error ? err.message : "Failed to load demo data", variant: "destructive" })
+    } finally {
+      setDemoBusy(false)
+    }
+  }
+
+  if (!authed) {
+    return <AuthScreen onAuthed={() => setAuthed(true)} />
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar active={nav} onChange={setNav} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar onAdd={() => setAddOpen(true)} />
+        <TopBar onAdd={() => setAddOpen(true)} onLogout={() => clearToken()} />
 
         <main className="flex-1 px-5 py-6 lg:px-8">
           <motion.div
@@ -61,11 +141,22 @@ export default function Dashboard() {
 
             {nav === "overview" && (
               <>
-                <Overview />
+                <Overview
+                  spentMonth={spentMonth}
+                  countMonth={countMonth}
+                  avgMonth={avgMonth}
+                  budget={budget}
+                  onSaveBudget={handleSaveBudget}
+                />
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                   <AiCategorization />
                   <div className="flex flex-col gap-5">
-                    <Transactions />
+                    <Transactions
+                      expenses={expenses}
+                      error={expensesError}
+                      demoBusy={demoBusy}
+                      onLoadDemo={handleLoadDemo}
+                    />
                   </div>
                 </div>
                 <BudgetsInsights />
@@ -74,7 +165,12 @@ export default function Dashboard() {
 
             {nav === "transactions" && (
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                <Transactions />
+                <Transactions
+                  expenses={expenses}
+                  error={expensesError}
+                  demoBusy={demoBusy}
+                  onLoadDemo={handleLoadDemo}
+                />
                 <AiCategorization />
               </div>
             )}
@@ -93,7 +189,7 @@ export default function Dashboard() {
         </main>
       </div>
 
-      <AddExpenseModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddExpenseModal open={addOpen} onClose={() => setAddOpen(false)} onSaved={() => setRefreshKey((k) => k + 1)} />
     </div>
   )
 }
