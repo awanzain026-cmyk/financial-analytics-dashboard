@@ -4,3 +4,4 @@ expenses.db
 .venv/
 __pycache__/
 *.log
+.fastapicloud/

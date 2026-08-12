@@ -19,14 +19,15 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Expense Tracker API")
 
-# CORS: allow the local dev frontend plus whatever origins are in CORS_ORIGINS
-# (comma-separated, e.g. the Vercel deployment URL).
+# CORS: allow the local dev frontend, any *.vercel.app deployment, plus whatever
+# origins are in CORS_ORIGINS (comma-separated).
 cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"] + [
     o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()
 ]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

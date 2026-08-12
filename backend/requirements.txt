@@ -1,4 +1,4 @@
-fastapi>=0.115
+fastapi[standard]>=0.115
 uvicorn[standard]>=0.34
 openai>=1.60
 sqlalchemy>=2.0
