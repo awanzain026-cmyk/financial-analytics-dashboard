@@ -95,6 +95,10 @@ export function apiListExpenses(): Promise<Expense[]> {
   return api<Expense[]>("/expenses")
 }
 
+export function apiDeleteExpense(id: number): Promise<void> {
+  return api<{ ok: boolean }>(`/expenses/${id}`, { method: "DELETE" }).then(() => undefined)
+}
+
 // ─── budget + demo data ───
 export function apiMe(): Promise<Me> {
   return api<Me>("/auth/me")

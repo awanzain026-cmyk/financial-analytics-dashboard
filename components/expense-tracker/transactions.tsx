@@ -1,7 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "motion/react"
-import { Sparkles, ChevronRight, Loader2, Receipt, Sparkle } from "lucide-react"
+import { Sparkles, ChevronRight, Loader2, Receipt, Sparkle, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { Expense } from "@/lib/api"
 import { CATEGORIES, formatCurrency, type CategoryId } from "./data"
 
@@ -10,12 +21,17 @@ export function Transactions({
   error,
   demoBusy,
   onLoadDemo,
+  onDelete,
+  deletingId,
 }: {
   expenses: Expense[] | null
   error: string | null
   demoBusy: boolean
   onLoadDemo: () => void
+  onDelete: (id: number) => Promise<void>
+  deletingId: number | null
 }) {
+  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null)
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -103,10 +119,52 @@ export function Transactions({
                 </p>
                 <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{tx.date}</p>
               </div>
+
+              <button
+                onClick={() => setDeleteTarget(tx)}
+                disabled={deletingId !== null}
+                aria-label={`Delete ${tx.description}`}
+                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+              >
+                {deletingId === tx.id ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
+              </button>
             </motion.li>
           )
         })}
       </ul>
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `"${deleteTarget.description}" (${formatCurrency(deleteTarget.amount)}) will be permanently removed.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault()
+                if (deleteTarget) {
+                  const id = deleteTarget.id
+                  setDeleteTarget(null)
+                  await onDelete(id)
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.section>
   )
 }

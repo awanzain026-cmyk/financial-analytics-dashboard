@@ -12,6 +12,7 @@ import { Transactions } from "./transactions"
 import { AddExpenseModal } from "./add-expense-modal"
 import { AuthScreen } from "./auth-screen"
 import {
+  apiDeleteExpense,
   apiListExpenses,
   apiLoadDemo,
   apiMe,
@@ -54,6 +55,7 @@ export default function Dashboard() {
   const [expensesError, setExpensesError] = useState<string | null>(null)
   const [budget, setBudget] = useState(0)
   const [demoBusy, setDemoBusy] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const meta = TITLES[nav]
 
   // localStorage only exists on the client, so the login check must happen
@@ -98,6 +100,19 @@ export default function Dashboard() {
       toast({ description: "Monthly budget saved" })
     } catch (err) {
       toast({ description: err instanceof Error ? err.message : "Failed to save budget", variant: "destructive" })
+    }
+  }
+
+  const handleDeleteExpense = async (id: number) => {
+    setDeletingId(id)
+    try {
+      await apiDeleteExpense(id)
+      setExpenses((prev) => (prev ? prev.filter((e) => e.id !== id) : prev))
+      toast({ description: "Expense deleted" })
+    } catch (err) {
+      toast({ description: err instanceof Error ? err.message : "Failed to delete expense", variant: "destructive" })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -156,6 +171,8 @@ export default function Dashboard() {
                       error={expensesError}
                       demoBusy={demoBusy}
                       onLoadDemo={handleLoadDemo}
+                      onDelete={handleDeleteExpense}
+                      deletingId={deletingId}
                     />
                   </div>
                 </div>
@@ -170,6 +187,8 @@ export default function Dashboard() {
                   error={expensesError}
                   demoBusy={demoBusy}
                   onLoadDemo={handleLoadDemo}
+                  onDelete={handleDeleteExpense}
+                  deletingId={deletingId}
                 />
                 <AiCategorization />
               </div>

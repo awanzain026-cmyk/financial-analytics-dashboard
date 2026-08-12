@@ -225,3 +225,18 @@ def get_expense(
     if record is None or record.user_id != current.id:
         raise HTTPException(status_code=404, detail="Expense not found")
     return record
+
+
+@app.delete("/expenses/{expense_id}")
+def delete_expense(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    """Delete one of your expenses (demo or real). 404 for others' records."""
+    record = db.get(Expense, expense_id)
+    if record is None or record.user_id != current.id:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    db.delete(record)
+    db.commit()
+    return {"ok": True, "id": expense_id}
