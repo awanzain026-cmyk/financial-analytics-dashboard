@@ -1,0 +1,6 @@
+# Local dev only — never commit
+expenses.db
+.env
+.venv/
+__pycache__/
+*.log
