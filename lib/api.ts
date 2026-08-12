@@ -4,7 +4,9 @@
 // It only talks to OUR backend, which does all of that server-side.
 // The JWT from login is stored in localStorage and attached to every request.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
+// Strip a trailing slash from the base so `${API_BASE}${path}` never becomes
+// `host//auth/login` (FastAPI returns 404 for the double slash).
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "")
 const TOKEN_KEY = "expense_token"
 
 export type Expense = {
