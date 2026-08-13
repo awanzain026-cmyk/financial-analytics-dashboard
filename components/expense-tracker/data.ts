@@ -55,39 +55,6 @@ export const KPIS = {
   transactionsCount: 128,
 }
 
-// ─── Spending trend (daily, current month) ──────────────────────
-
-export const SPENDING_TREND = [
-  { day: "1", spent: 42, budget: 140 },
-  { day: "3", spent: 118, budget: 140 },
-  { day: "5", spent: 96, budget: 140 },
-  { day: "7", spent: 210, budget: 140 },
-  { day: "9", spent: 88, budget: 140 },
-  { day: "11", spent: 134, budget: 140 },
-  { day: "13", spent: 176, budget: 140 },
-  { day: "15", spent: 92, budget: 140 },
-  { day: "17", spent: 245, budget: 140 },
-  { day: "19", spent: 110, budget: 140 },
-  { day: "21", spent: 68, budget: 140 },
-  { day: "23", spent: 158, budget: 140 },
-  { day: "25", spent: 132, budget: 140 },
-  { day: "27", spent: 204, budget: 140 },
-  { day: "29", spent: 90, budget: 140 },
-]
-
-// ─── Category breakdown (for donut) ─────────────────────────────
-
-export const CATEGORY_SPEND: { id: CategoryId; value: number }[] = [
-  { id: "groceries", value: 720 },
-  { id: "dining", value: 540 },
-  { id: "transport", value: 310 },
-  { id: "shopping", value: 468 },
-  { id: "bills", value: 610 },
-  { id: "entertainment", value: 180 },
-  { id: "health", value: 240 },
-  { id: "subscriptions", value: 180 },
-]
-
 // ─── Budgets ────────────────────────────────────────────────────
 
 export const BUDGETS: { id: CategoryId; spent: number; limit: number }[] = [
@@ -125,72 +92,6 @@ export const INSIGHTS: Insight[] = [
     tone: "neutral",
     title: "4 subscriptions renew this week",
     body: "Netflix, Spotify, iCloud and Figma total $58.96. Two haven't been used in 30+ days.",
-  },
-]
-
-// ─── AI Categorization review queue (signature feature) ─────────
-
-export type PendingExpense = {
-  id: number
-  merchant: string
-  raw: string
-  amount: number
-  date: string
-  suggested: CategoryId
-  confidence: number // 0-1
-  alternates: CategoryId[]
-}
-
-export const PENDING_QUEUE: PendingExpense[] = [
-  {
-    id: 1,
-    merchant: "Blue Bottle Coffee",
-    raw: "SQ *BLUE BOTTLE COFFEE 214 OAK ST",
-    amount: 6.75,
-    date: "Today, 8:42 AM",
-    suggested: "dining",
-    confidence: 0.97,
-    alternates: ["groceries", "shopping"],
-  },
-  {
-    id: 2,
-    merchant: "Shell",
-    raw: "SHELL OIL 57429871 SAN FRANCISCO CA",
-    amount: 54.2,
-    date: "Today, 7:15 AM",
-    suggested: "transport",
-    confidence: 0.93,
-    alternates: ["bills", "shopping"],
-  },
-  {
-    id: 3,
-    merchant: "Whole Foods Market",
-    raw: "WHOLEFDS MKT #10432 4TH ST",
-    amount: 88.14,
-    date: "Yesterday, 6:30 PM",
-    suggested: "groceries",
-    confidence: 0.99,
-    alternates: ["dining", "health"],
-  },
-  {
-    id: 4,
-    merchant: "Steam Games",
-    raw: "PAYPAL *STEAMGAMES 4259522985",
-    amount: 39.99,
-    date: "Yesterday, 9:12 PM",
-    suggested: "entertainment",
-    confidence: 0.82,
-    alternates: ["subscriptions", "shopping"],
-  },
-  {
-    id: 5,
-    merchant: "CVS Pharmacy",
-    raw: "CVS/PHARMACY #08812 MARKET ST",
-    amount: 23.47,
-    date: "Yesterday, 2:05 PM",
-    suggested: "health",
-    confidence: 0.71,
-    alternates: ["groceries", "shopping"],
   },
 ]
 

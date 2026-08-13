@@ -9,6 +9,7 @@ import {
   Tooltip,
   XAxis,
   Cell,
+  Line,
   Pie,
   PieChart,
 } from "recharts"
@@ -21,12 +22,8 @@ import {
   Receipt,
   X,
 } from "lucide-react"
-import {
-  SPENDING_TREND,
-  CATEGORY_SPEND,
-  CATEGORIES,
-  formatCurrency,
-} from "./data"
+import { CATEGORIES, formatCurrency, type CategoryId } from "./data"
+import type { Expense } from "@/lib/api"
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
@@ -92,7 +89,15 @@ function TrendTooltip({ active, payload, label }: any) {
   )
 }
 
-function SpendingTrend() {
+function SpendingTrend({
+  monthName,
+  data,
+  dailyBudget,
+}: {
+  monthName: string
+  data: { day: string; spent: number; budget?: number }[]
+  dailyBudget: number | null
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -107,51 +112,74 @@ function SpendingTrend() {
         </div>
         <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
           <TrendingUp className="size-3.5 text-primary" />
-          March
+          {monthName}
         </div>
       </div>
 
-      <div className="h-52 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={SPENDING_TREND} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
-            <defs>
-              <linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.28} />
-                <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="day"
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-              dy={6}
-            />
-            <Tooltip content={<TrendTooltip />} cursor={{ stroke: "var(--border)", strokeWidth: 1 }} />
-            <Area
-              type="monotone"
-              dataKey="spent"
-              stroke="var(--chart-1)"
-              strokeWidth={2.5}
-              fill="url(#spendFill)"
-              dot={false}
-              activeDot={{ r: 4, fill: "var(--chart-1)", stroke: "var(--card)", strokeWidth: 2 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {data.length === 0 ? (
+        <div className="flex h-52 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-center">
+          <div className="flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+            <Receipt className="size-5" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">No spending this month</p>
+          <p className="max-w-[14rem] text-xs text-muted-foreground">
+            Add an expense or load demo data to see your daily trend.
+          </p>
+        </div>
+      ) : (
+        <div className="h-52 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+              <defs>
+                <linearGradient id="spendFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.28} />
+                  <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="day"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                dy={6}
+              />
+              <Tooltip content={<TrendTooltip />} cursor={{ stroke: "var(--border)", strokeWidth: 1 }} />
+              <Area
+                type="monotone"
+                dataKey="spent"
+                stroke="var(--chart-1)"
+                strokeWidth={2.5}
+                fill="url(#spendFill)"
+                dot={false}
+                activeDot={{ r: 4, fill: "var(--chart-1)", stroke: "var(--card)", strokeWidth: 2 }}
+              />
+              {dailyBudget !== null && (
+                <Line
+                  type="monotone"
+                  dataKey="budget"
+                  stroke="var(--muted-foreground)"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  dot={false}
+                  activeDot={false}
+                />
+              )}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </motion.div>
   )
 }
 
-function CategoryDonut() {
-  const data = CATEGORY_SPEND.map((c) => ({
+function CategoryDonut({ data }: { data: { id: CategoryId; value: number }[] }) {
+  const mapped = data.map((c) => ({
     ...c,
-    label: CATEGORIES[c.id].label,
-    color: CATEGORIES[c.id].color,
+    label: CATEGORIES[c.id]?.label ?? c.id,
+    color: CATEGORIES[c.id]?.color ?? "var(--chart-1)",
   }))
-  const total = data.reduce((sum, d) => sum + d.value, 0)
-  const top = [...data].sort((a, b) => b.value - a.value).slice(0, 4)
+  const total = mapped.reduce((sum, d) => sum + d.value, 0)
+  const top = [...mapped].sort((a, b) => b.value - a.value).slice(0, 4)
 
   return (
     <motion.div
@@ -163,41 +191,55 @@ function CategoryDonut() {
       <h3 className="font-display text-sm font-bold text-foreground">By category</h3>
       <p className="mt-0.5 text-xs text-muted-foreground">Where your money went</p>
 
-      <div className="relative mx-auto my-3 h-40 w-40">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="label"
-              innerRadius={52}
-              outerRadius={72}
-              paddingAngle={2}
-              strokeWidth={0}
-            >
-              {data.map((entry) => (
-                <Cell key={entry.id} fill={entry.color} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</span>
-          <span className="font-mono text-lg font-bold text-foreground">{formatCurrency(total, { cents: false })}</span>
+      {total === 0 ? (
+        <div className="mt-3 flex h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-center">
+          <div className="flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+            <TrendingUp className="size-5" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">No spending yet</p>
+          <p className="max-w-[14rem] text-xs text-muted-foreground">
+            Your category breakdown will appear here once you add expenses.
+          </p>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="relative mx-auto my-3 h-40 w-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={mapped}
+                  dataKey="value"
+                  nameKey="label"
+                  innerRadius={52}
+                  outerRadius={72}
+                  paddingAngle={2}
+                  strokeWidth={0}
+                >
+                  {mapped.map((entry) => (
+                    <Cell key={entry.id} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</span>
+              <span className="font-mono text-lg font-bold text-foreground">{formatCurrency(total, { cents: false })}</span>
+            </div>
+          </div>
 
-      <ul className="flex flex-col gap-2">
-        {top.map((c) => (
-          <li key={c.id} className="flex items-center gap-2 text-sm">
-            <span className="size-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-            <span className="flex-1 text-muted-foreground">{c.label}</span>
-            <span className="font-mono font-semibold tabular-nums text-foreground">
-              {formatCurrency(c.value, { cents: false })}
-            </span>
-          </li>
-        ))}
-      </ul>
+          <ul className="flex flex-col gap-2">
+            {top.map((c) => (
+              <li key={c.id} className="flex items-center gap-2 text-sm">
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                <span className="flex-1 text-muted-foreground">{c.label}</span>
+                <span className="font-mono font-semibold tabular-nums text-foreground">
+                  {formatCurrency(c.value, { cents: false })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </motion.div>
   )
 }
@@ -281,20 +323,47 @@ function BudgetModal({
 }
 
 export function Overview({
-  spentMonth,
-  countMonth,
-  avgMonth,
+  expenses,
   budget,
   onSaveBudget,
 }: {
-  spentMonth: number
-  countMonth: number
-  avgMonth: number
+  expenses: Expense[]
   budget: number
   onSaveBudget: (value: number) => Promise<void>
 }) {
   const [budgetOpen, setBudgetOpen] = useState(false)
+
+  // Real KPIs, computed from the month's expenses (same source as the charts).
+  const spentMonth = expenses.reduce((sum, e) => sum + e.amount, 0)
+  const countMonth = expenses.length
+  const avgMonth = countMonth > 0 ? spentMonth / countMonth : 0
   const budgetLeft = budget > 0 ? budget - spentMonth : null
+
+  // Chart data: daily totals + per-category totals for this month.
+  const now = new Date()
+  const monthName = now.toLocaleString("en-US", { month: "long" })
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const dailyBudget = budget > 0 ? budget / daysInMonth : null
+
+  const byDay = new Map<number, number>()
+  const byCategory = new Map<string, number>()
+  for (const e of expenses) {
+    const day = Number(e.date.slice(8, 10))
+    byDay.set(day, (byDay.get(day) ?? 0) + e.amount)
+    byCategory.set(e.category, (byCategory.get(e.category) ?? 0) + e.amount)
+  }
+  const round2 = (n: number) => Math.round(n * 100) / 100
+  const trend = [...byDay.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([day, spent]) => ({
+      day: String(day),
+      spent: round2(spent),
+      ...(dailyBudget !== null ? { budget: round2(dailyBudget) } : {}),
+    }))
+  const donutData = [...byCategory.entries()].map(([id, value]) => ({
+    id: id as CategoryId,
+    value: round2(value),
+  }))
 
   return (
     <div className="flex flex-col gap-5">
@@ -342,8 +411,8 @@ export function Overview({
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <SpendingTrend />
-        <CategoryDonut />
+        <SpendingTrend monthName={monthName} data={trend} dailyBudget={dailyBudget} />
+        <CategoryDonut data={donutData} />
       </div>
     </div>
   )

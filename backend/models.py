@@ -32,3 +32,5 @@ class Expense(Base):
     category: Mapped[str] = mapped_column(String(50))
     confidence: Mapped[float] = mapped_column(Float)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    # False = still shows up in the AI Categorization review queue
+    reviewed: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -17,6 +17,7 @@ import {
   apiLoadDemo,
   apiMe,
   apiUpdateBudget,
+  apiUpdateExpense,
   clearToken,
   isLoggedIn,
   type Expense,
@@ -89,9 +90,9 @@ export default function Dashboard() {
   // ── real Overview stats, computed from the expenses we just fetched ──
   const monthKey = new Date().toISOString().slice(0, 7) // e.g. "2026-08"
   const monthExpenses = (expenses ?? []).filter((e) => e.date.startsWith(monthKey))
-  const spentMonth = monthExpenses.reduce((sum, e) => sum + e.amount, 0)
-  const countMonth = monthExpenses.length
-  const avgMonth = countMonth > 0 ? spentMonth / countMonth : 0
+
+  // ── AI Categorization queue: everything the user hasn't reviewed yet ──
+  const pendingReview = (expenses ?? []).filter((e) => !e.reviewed)
 
   const handleSaveBudget = async (value: number) => {
     try {
@@ -113,6 +114,16 @@ export default function Dashboard() {
       toast({ description: err instanceof Error ? err.message : "Failed to delete expense", variant: "destructive" })
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleReview = async (id: number, category: string) => {
+    try {
+      const updated = await apiUpdateExpense(id, { category, reviewed: true })
+      setExpenses((prev) => (prev ? prev.map((e) => (e.id === id ? updated : e)) : prev))
+      toast({ description: "Expense reviewed" })
+    } catch (err) {
+      toast({ description: err instanceof Error ? err.message : "Failed to review expense", variant: "destructive" })
     }
   }
 
@@ -157,14 +168,12 @@ export default function Dashboard() {
             {nav === "overview" && (
               <>
                 <Overview
-                  spentMonth={spentMonth}
-                  countMonth={countMonth}
-                  avgMonth={avgMonth}
+                  expenses={monthExpenses}
                   budget={budget}
                   onSaveBudget={handleSaveBudget}
                 />
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  <AiCategorization />
+                  <AiCategorization pending={pendingReview} onReview={handleReview} />
                   <div className="flex flex-col gap-5">
                     <Transactions
                       expenses={expenses}
@@ -190,13 +199,13 @@ export default function Dashboard() {
                   onDelete={handleDeleteExpense}
                   deletingId={deletingId}
                 />
-                <AiCategorization />
+                <AiCategorization pending={pendingReview} onReview={handleReview} />
               </div>
             )}
 
             {nav === "insights" && (
               <>
-                <AiCategorization />
+                <AiCategorization pending={pendingReview} onReview={handleReview} />
                 <BudgetsInsights />
               </>
             )}

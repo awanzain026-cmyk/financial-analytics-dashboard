@@ -16,6 +16,7 @@ export type Expense = {
   date: string
   category: string
   confidence: number
+  reviewed: boolean
 }
 
 export type CategoryGuess = {
@@ -97,6 +98,13 @@ export function apiListExpenses(): Promise<Expense[]> {
 
 export function apiDeleteExpense(id: number): Promise<void> {
   return api<{ ok: boolean }>(`/expenses/${id}`, { method: "DELETE" }).then(() => undefined)
+}
+
+export function apiUpdateExpense(
+  id: number,
+  patch: { category?: string; reviewed?: boolean }
+): Promise<Expense> {
+  return api<Expense>(`/expenses/${id}`, { method: "PATCH", body: patch })
 }
 
 // ─── budget + demo data ───

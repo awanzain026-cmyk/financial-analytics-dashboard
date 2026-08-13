@@ -2,15 +2,14 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { Sparkles, Check, Pencil, X } from "lucide-react"
+import { Sparkles, Check, Pencil, X, Loader2 } from "lucide-react"
 import {
-  PENDING_QUEUE,
   CATEGORIES,
   CATEGORY_LIST,
   formatCurrency,
-  type PendingExpense,
   type CategoryId,
 } from "./data"
+import type { Expense } from "@/lib/api"
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100)
@@ -53,15 +52,23 @@ function CategoryChip({ id, selected, onClick }: { id: CategoryId; selected?: bo
   )
 }
 
+function formatDate(iso: string) {
+  const d = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
 function QueueRow({
   item,
+  busy,
   onResolve,
 }: {
-  item: PendingExpense
+  item: Expense
+  busy: boolean
   onResolve: (id: number, category: CategoryId) => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [choice, setChoice] = useState<CategoryId>(item.suggested)
+  const [choice, setChoice] = useState<CategoryId>(item.category as CategoryId)
   const cat = CATEGORIES[choice]
   const Icon = cat.icon
 
@@ -84,15 +91,15 @@ function QueueRow({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-sm font-semibold text-foreground">{item.merchant}</p>
+            <p className="truncate text-sm font-semibold text-foreground">{item.description}</p>
             <p className="shrink-0 font-mono text-sm font-bold tabular-nums text-foreground">
               {formatCurrency(item.amount)}
             </p>
           </div>
-          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{item.raw}</p>
+          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{formatDate(item.date)}</p>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="text-[11px] text-muted-foreground">{item.date}</span>
+            <span className="text-[11px] text-muted-foreground">{item.category}</span>
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-primary">
               <Sparkles className="size-3" />
               AI match
@@ -131,16 +138,18 @@ function QueueRow({
             </span>
             <button
               onClick={() => setEditing(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
             >
               <Pencil className="size-3.5" />
               Change
             </button>
             <button
               onClick={() => onResolve(item.id, choice)}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              <Check className="size-3.5" />
+              {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
               Confirm
             </button>
           </>
@@ -155,9 +164,10 @@ function QueueRow({
             </button>
             <button
               onClick={() => onResolve(item.id, choice)}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              <Check className="size-3.5" />
+              {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
               Save as {CATEGORIES[choice].label}
             </button>
           </>
@@ -167,13 +177,22 @@ function QueueRow({
   )
 }
 
-export function AiCategorization() {
-  const [queue, setQueue] = useState<PendingExpense[]>(PENDING_QUEUE)
-  const total = PENDING_QUEUE.length
-  const resolved = total - queue.length
+export function AiCategorization({
+  pending,
+  onReview,
+}: {
+  pending: Expense[]
+  onReview: (id: number, category: CategoryId) => void
+}) {
+  const [busyId, setBusyId] = useState<number | null>(null)
 
-  function handleResolve(id: number) {
-    setQueue((q) => q.filter((item) => item.id !== id))
+  const handleResolve = async (id: number, category: CategoryId) => {
+    setBusyId(id)
+    try {
+      await onReview(id, category)
+    } finally {
+      setBusyId(null)
+    }
   }
 
   return (
@@ -189,18 +208,18 @@ export function AiCategorization() {
           </div>
         </div>
         <span className="rounded-full bg-card px-2.5 py-1 font-mono text-[11px] font-semibold text-muted-foreground">
-          {resolved}/{total} done
+          {pending.length} to review
         </span>
       </div>
 
       <div className="flex flex-col gap-3">
         <AnimatePresence mode="popLayout">
-          {queue.map((item) => (
-            <QueueRow key={item.id} item={item} onResolve={handleResolve} />
+          {pending.map((item) => (
+            <QueueRow key={item.id} item={item} busy={busyId === item.id} onResolve={handleResolve} />
           ))}
         </AnimatePresence>
 
-        {queue.length === 0 && (
+        {pending.length === 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}

@@ -10,12 +10,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from auth import create_token, get_current_user, hash_password, verify_password
-from categorizer import classify
-from db import Base, engine, get_db
+from categorizer import CATEGORIES as VALID_CATEGORIES, classify
+from db import ensure_schema, get_db
 from models import Expense, User
 
-# Create tables if they don't exist (idempotent). In production we'd use migrations.
-Base.metadata.create_all(bind=engine)
+# Create tables if they don't exist + apply micro-migrations (idempotent).
+# In production we'd use proper migrations.
+ensure_schema()
 
 app = FastAPI(title="Expense Tracker API")
 
@@ -54,9 +55,18 @@ class ExpenseOut(ExpenseIn):
     id: int
     category: str
     confidence: float
+    reviewed: bool
 
     # Lets FastAPI build ExpenseOut straight from an SQLAlchemy Expense object
     model_config = ConfigDict(from_attributes=True)
+
+
+class ExpensePatchIn(BaseModel):
+    """Review an expense: change its category and/or pull it out of the
+    AI review queue. Both fields optional — send only what changed."""
+
+    category: str | None = Field(default=None, min_length=1, max_length=50)
+    reviewed: bool | None = None
 
 
 class AuthIn(BaseModel):
@@ -240,3 +250,26 @@ def delete_expense(
     db.delete(record)
     db.commit()
     return {"ok": True, "id": expense_id}
+
+
+@app.patch("/expenses/{expense_id}", response_model=ExpenseOut)
+def update_expense(
+    expense_id: int,
+    payload: ExpensePatchIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    """Re-categorize an expense and/or mark it as reviewed (removing it from
+    the AI categorization queue). Only your own expenses, 404 otherwise."""
+    record = db.get(Expense, expense_id)
+    if record is None or record.user_id != current.id:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    if payload.category is not None:
+        if payload.category not in VALID_CATEGORIES:
+            raise HTTPException(status_code=422, detail="Unknown category")
+        record.category = payload.category
+    if payload.reviewed is not None:
+        record.reviewed = payload.reviewed
+    db.commit()
+    db.refresh(record)
+    return record
