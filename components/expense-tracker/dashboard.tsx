@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { motion } from "motion/react"
-import { Construction } from "lucide-react"
 import { Sidebar, type NavId } from "./sidebar"
 import { TopBar } from "./topbar"
 import { Overview } from "./overview"
 import { AiCategorization } from "./ai-categorization"
 import { BudgetsInsights } from "./budgets-insights"
 import { Transactions } from "./transactions"
+import { Categories } from "./categories"
+import { Settings } from "./settings"
 import { AddExpenseModal } from "./add-expense-modal"
 import { AuthScreen } from "./auth-screen"
 import {
@@ -21,6 +22,7 @@ import {
   clearToken,
   isLoggedIn,
   type Expense,
+  type Me,
 } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
 
@@ -33,20 +35,6 @@ const TITLES: Record<NavId, { title: string; subtitle: string }> = {
   settings: { title: "Settings", subtitle: "Preferences and account" },
 }
 
-function Placeholder({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card py-20 text-center shadow-soft">
-      <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
-        <Construction className="size-6" />
-      </div>
-      <p className="font-display text-sm font-bold text-foreground">{label} is a prototype view</p>
-      <p className="max-w-xs text-xs text-muted-foreground">
-        This screen is part of the design mockup. Hook it up to your backend to bring it to life.
-      </p>
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const [nav, setNav] = useState<NavId>("overview")
   const [addOpen, setAddOpen] = useState(false)
@@ -54,7 +42,7 @@ export default function Dashboard() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [expenses, setExpenses] = useState<Expense[] | null>(null)
   const [expensesError, setExpensesError] = useState<string | null>(null)
-  const [budget, setBudget] = useState(0)
+  const [me, setMe] = useState<Me | null>(null)
   const [demoBusy, setDemoBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const meta = TITLES[nav]
@@ -83,7 +71,7 @@ export default function Dashboard() {
     if (!authed) return
     loadExpenses()
     apiMe()
-      .then((me) => setBudget(me.monthly_budget ?? 0))
+      .then(setMe)
       .catch(() => {})
   }, [authed, refreshKey, loadExpenses])
 
@@ -94,15 +82,20 @@ export default function Dashboard() {
   // ── AI Categorization queue: everything the user hasn't reviewed yet ──
   const pendingReview = (expenses ?? []).filter((e) => !e.reviewed)
 
+  const budget = me?.monthly_budget ?? 0
+  const email = me?.email ?? ""
+
   const handleSaveBudget = async (value: number) => {
     try {
-      const me = await apiUpdateBudget(value)
-      setBudget(me.monthly_budget)
+      const updated = await apiUpdateBudget(value)
+      setMe(updated)
       toast({ description: "Monthly budget saved" })
     } catch (err) {
       toast({ description: err instanceof Error ? err.message : "Failed to save budget", variant: "destructive" })
     }
   }
+
+  const handleLogout = () => clearToken()
 
   const handleDeleteExpense = async (id: number) => {
     setDeletingId(id)
@@ -147,10 +140,10 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar active={nav} onChange={setNav} />
+      <Sidebar active={nav} onChange={setNav} pendingCount={pendingReview.length} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar onAdd={() => setAddOpen(true)} onLogout={() => clearToken()} />
+        <TopBar onAdd={() => setAddOpen(true)} onLogout={handleLogout} email={email} />
 
         <main className="flex-1 px-5 py-6 lg:px-8">
           <motion.div
@@ -185,7 +178,12 @@ export default function Dashboard() {
                     />
                   </div>
                 </div>
-                <BudgetsInsights />
+                <BudgetsInsights
+                  expenses={monthExpenses}
+                  budget={budget}
+                  pendingCount={pendingReview.length}
+                  onSaveBudget={handleSaveBudget}
+                />
               </>
             )}
 
@@ -206,13 +204,35 @@ export default function Dashboard() {
             {nav === "insights" && (
               <>
                 <AiCategorization pending={pendingReview} onReview={handleReview} />
-                <BudgetsInsights />
+                <BudgetsInsights
+                  expenses={monthExpenses}
+                  budget={budget}
+                  pendingCount={pendingReview.length}
+                  onSaveBudget={handleSaveBudget}
+                />
               </>
             )}
 
-            {nav === "budgets" && <BudgetsInsights />}
+            {nav === "budgets" && (
+              <BudgetsInsights
+                expenses={monthExpenses}
+                budget={budget}
+                pendingCount={pendingReview.length}
+                onSaveBudget={handleSaveBudget}
+              />
+            )}
 
-            {(nav === "categories" || nav === "settings") && <Placeholder label={meta.title} />}
+            {nav === "categories" && <Categories expenses={monthExpenses} />}
+
+            {nav === "settings" && (
+              <Settings
+                email={email}
+                budget={budget}
+                expenseCount={expenses?.length ?? 0}
+                onSaveBudget={handleSaveBudget}
+                onLogout={handleLogout}
+              />
+            )}
           </motion.div>
         </main>
       </div>

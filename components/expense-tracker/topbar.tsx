@@ -2,7 +2,16 @@
 
 import { Search, Plus, Bell, Sparkles } from "lucide-react"
 
-export function TopBar({ onAdd, onLogout }: { onAdd: () => void; onLogout: () => void }) {
+export function TopBar({
+  onAdd,
+  onLogout,
+  email,
+}: {
+  onAdd: () => void
+  onLogout: () => void
+  email: string
+}) {
+  const initials = email ? email.slice(0, 2).toUpperCase() : "MC"
   return (
     <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-background/80 px-5 py-4 backdrop-blur-md lg:px-8">
       {/* Mobile brand */}
@@ -46,7 +55,7 @@ export function TopBar({ onAdd, onLogout }: { onAdd: () => void; onLogout: () =>
           className="flex size-10 items-center justify-center overflow-hidden rounded-xl border border-border bg-accent font-semibold text-accent-foreground transition-opacity hover:opacity-80"
           aria-label="Log out"
         >
-          MC
+          {initials}
         </button>
       </div>
     </header>

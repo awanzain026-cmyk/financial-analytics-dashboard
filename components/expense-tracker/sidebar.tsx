@@ -14,16 +14,24 @@ import {
 
 export type NavId = "overview" | "transactions" | "insights" | "budgets" | "categories" | "settings"
 
-const NAV: { id: NavId; label: string; icon: LucideIcon; badge?: number }[] = [
+const NAV: { id: NavId; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "transactions", label: "Transactions", icon: ArrowLeftRight },
-  { id: "insights", label: "AI Insights", icon: Sparkles, badge: 3 },
+  { id: "insights", label: "AI Insights", icon: Sparkles },
   { id: "budgets", label: "Budgets", icon: Target },
   { id: "categories", label: "Categories", icon: PieChart },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
-export function Sidebar({ active, onChange }: { active: NavId; onChange: (id: NavId) => void }) {
+export function Sidebar({
+  active,
+  onChange,
+  pendingCount,
+}: {
+  active: NavId
+  onChange: (id: NavId) => void
+  pendingCount: number
+}) {
   return (
     <aside className="hidden lg:flex w-60 shrink-0 flex-col gap-1 border-r border-sidebar-border bg-sidebar px-4 py-6">
       {/* Brand */}
@@ -41,6 +49,7 @@ export function Sidebar({ active, onChange }: { active: NavId; onChange: (id: Na
       <nav className="flex flex-col gap-1">
         {NAV.map((item) => {
           const isActive = active === item.id
+          const badge = item.id === "insights" ? pendingCount : 0
           return (
             <button
               key={item.id}
@@ -60,13 +69,13 @@ export function Sidebar({ active, onChange }: { active: NavId; onChange: (id: Na
               )}
               <item.icon className="relative z-10 size-[18px]" />
               <span className="relative z-10 flex-1 text-left">{item.label}</span>
-              {item.badge && (
+              {badge > 0 && (
                 <span
                   className={`relative z-10 flex size-5 items-center justify-center rounded-full text-[10px] font-bold ${
                     isActive ? "bg-white/25 text-white" : "bg-primary/12 text-primary"
                   }`}
                 >
-                  {item.badge}
+                  {badge}
                 </span>
               )}
             </button>
